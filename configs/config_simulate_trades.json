@@ -1,0 +1,5 @@
+{
+  "input_users_path": "simulations/sample_users.csv",
+  "input_matching_path": "simulations/matching_results.csv",
+  "output_dir": "simulations"
+}

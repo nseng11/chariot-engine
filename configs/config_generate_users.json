@@ -1,0 +1,7 @@
+{
+  "catalog_path": "seed_catalogs_w/watch_catalog.csv",
+  "initial_users": 15,
+  "growth_rate": 0.15,
+  "num_periods": 12,
+  "output_path": "simulations/sample_users.csv"
+}

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Chariot Engine — Simulation Results</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 2rem; background: #f4f4f4; }
+    h1 { color: #333; }
+    .stats { background: #fff; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); max-width: 600px; }
+    .stats p { margin: 0.4rem 0; }
+    .controls { margin-bottom: 1rem; }
+    .dropdown { padding: 0.5rem; font-size: 1rem; }
+    .button { padding: 0.5rem 1rem; font-size: 1rem; margin-left: 0.5rem; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; }
+    .carousel { margin-top: 2rem; text-align: center; }
+    .carousel img { width: 600px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); display: none; }
+    .carousel img.active { display: block; }
+    .carousel-controls { margin-top: 1rem; }
+    .carousel-controls button { padding: 0.5rem 1rem; font-size: 1rem; margin: 0 0.5rem; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+<h1>Chariot Engine — Simulation Results</h1>
+
+<div class="controls">
+  <form action="/run-again" method="get" style="display: inline;">
+    <button class="button" type="submit">Run Again</button>
+  </form>
+  <form action="/run/{{ selected }}" method="get" style="display: inline;">
+    <select class="dropdown" name="run_id" onchange="location = '/run/' + this.value;">
+      {% for run in runs %}
+        <option value="{{ run }}" {% if run == selected %}selected{% endif %}>{{ run }}</option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+<div class="stats">
+  {% if stats %}
+    <p><strong>Total Matched Loops:</strong> {{ stats.matched_loops }}</p>
+    <p><strong>% 2-way:</strong> {{ stats.percent_2way }}%</p>
+    <p><strong>% 3-way:</strong> {{ stats.percent_3way }}%</p>
+    <p><strong>Avg users per loop:</strong> {{ stats.avg_users_per_loop }}</p>
+    <hr>
+    <p><strong>Executed Loops:</strong> {{ stats.executed }}</p>
+    <p><strong>Rejected Loops:</strong> {{ stats.rejected }}</p>
+    <p><strong>Users still in queue:</strong> {{ stats.queue }}</p>
+    <p><strong>Still available but unmatched:</strong> {{ stats.available }}</p>
+    <p><strong>Declined users:</strong> {{ stats.declined }}</p>
+  {% else %}
+    <p>No results found.</p>
+  {% endif %}
+</div>
+
+{% if plots %}
+<div class="carousel">
+  <h2>Visualizations</h2>
+  {% for plot in plots %}
+    <img src="{{ url_for('get_plot', run_id=selected, filename=plot) }}" class="{% if loop.index0 == 0 %}active{% endif %}" id="plot-{{ loop.index0 }}">
+  {% endfor %}
+  <div class="carousel-controls">
+    <button onclick="prevImage()">⟨ Prev</button>
+    <button onclick="nextImage()">Next ⟩</button>
+  </div>
+</div>
+<script>
+  let current = 0;
+  document.addEventListener("DOMContentLoaded", () => {
+    const images = document.querySelectorAll('.carousel img');
+    if (images.length > 0) {
+      images[current].classList.add('active');
+    }
+
+    window.prevImage = () => {
+      images[current].classList.remove('active');
+      current = (current - 1 + images.length) % images.length;
+      images[current].classList.add('active');
+    }
+
+    window.nextImage = () => {
+      images[current].classList.remove('active');
+      current = (current + 1) % images.length;
+      images[current].classList.add('active');
+    }
+  });
+</script>
+{% endif %}
+
+</body>
+</html>

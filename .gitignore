@@ -1,0 +1,35 @@
+# === Simulation Outputs ===
+simulations/run_*/all_matched_loops.csv
+simulations/run_*/plots/
+simulations/run_*/
+
+# Keep the simulations folder structure
+!simulations/.gitkeep
+
+# === Python Cache and Compiled Files ===
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# === Jupyter Notebook Checkpoints ===
+.ipynb_checkpoints/
+
+# === Logs and Temp Files ===
+*.log
+*.tmp
+
+# === Virtual Environment Folders ===
+env/
+venv/
+.venv/
+
+# === VS Code Project Files ===
+.vscode/
+
+# === Mac and Windows System Files ===
+.DS_Store
+Thumbs.db
+
+# === EXCEPTION: Keep the watch catalog file ===
+!seed_catalogs_w/watch_catalog.csv
