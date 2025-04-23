@@ -1,8 +1,43 @@
+"""
+Trade Simulation Module
+======================
+
+This module implements the core trade simulation logic for the Chariot Engine.
+It simulates trading rounds where users can accept or decline trades based on
+various factors including fairness, efficiency, and personal preferences.
+
+Key Features:
+------------
+- Multi-round trade simulation
+- Probabilistic trade acceptance
+- User state management
+- Trade execution tracking
+- Performance metrics calculation
+
+Components:
+----------
+- Trade simulation engine
+- User state management
+- Trade decision logic
+- Performance tracking
+- Result logging
+
+Example:
+--------
+>>> result = simulate_trade_loops(
+...     user_csv_path="data/users.csv",
+...     loop_csv_path="data/loops.csv",
+...     output_dir="output/simulation"
+... )
+>>> print(f"Executed trades: {len(result['executed_loops'])}")
+"""
+
 import os
 import json
 import pandas as pd
 import random
 from collections import deque
+from typing import Dict, List, Optional, Union, Any
 
 def get_trade_weights(fairness_score, value_efficiency, max_value_diff, avg_watch_value):
     """Calculate acceptance weights based on multiple factors"""
@@ -40,26 +75,21 @@ def simulate_trade_loops(user_csv_path, loop_csv_path, output_dir, return_status
     executed_loops = []
     rejected_loops = []
     matched_loops = []
-    round_counter = 1
 
-    while True:
-        available = [u for u in user_status if user_status[u] == 'available']
-        if not available:
-            print("\n🚩 No users available for further matching.")
-            break
+    # Get all valid loops for this round
+    current_loops = loops_df.copy()
+    current_loops['valid'] = current_loops.apply(
+        lambda row: all(user_status.get(row.get(f"user_{i+1}"), 'matched') == 'available'
+                        for i in range(3) if pd.notna(row.get(f"user_{i+1}"))),
+        axis=1
+    )
 
-        current_loops = loops_df.copy()
-        current_loops['valid'] = current_loops.apply(
-            lambda row: all(user_status.get(row.get(f"user_{i+1}"), 'matched') == 'available'
-                            for i in range(3) if pd.notna(row.get(f"user_{i+1}"))),
-            axis=1
-        )
-
-        filtered_loops = current_loops[current_loops['valid']].drop(columns='valid')
-        if filtered_loops.empty:
-            print("\n🚩 No valid loops left to simulate.")
-            break
-
+    filtered_loops = current_loops[current_loops['valid']].drop(columns='valid')
+    
+    print(f"\nSimulating trades:")
+    print(f"Total possible loops: {len(filtered_loops)}")
+    
+    if not filtered_loops.empty:
         fairness_values = filtered_loops['relative_fairness_score'].dropna()
         if not fairness_values.empty:
             q1, q2, q3 = fairness_values.quantile([0.25, 0.5, 0.75])
@@ -154,13 +184,6 @@ def simulate_trade_loops(user_csv_path, loop_csv_path, output_dir, return_status
 
             trade_counter[0] += 1
 
-        print(f"\n🌀 Round {round_counter} Summary:")
-        print(f"  ✅ Executed loops: {round_exec}")
-        print(f"  ❌ Rejected loops: {round_reject}")
-
-        matched_loops.extend(executed_loops + rejected_loops)
-        round_counter += 1
-
     os.makedirs(output_dir, exist_ok=True)
     pd.DataFrame(executed_loops).to_csv(os.path.join(output_dir, "executed_loops.csv"), index=False)
     pd.DataFrame(rejected_loops).to_csv(os.path.join(output_dir, "rejected_loops.csv"), index=False)
@@ -168,12 +191,6 @@ def simulate_trade_loops(user_csv_path, loop_csv_path, output_dir, return_status
 
     available = [u for u, s in user_status.items() if s == 'available']
     declined = [u for u, s in user_status.items() if s == 'declined']
-    print("\n✅ Trade Simulation Complete")
-    print(f"  🔁 Total executed: {len(executed_loops)}")
-    print(f"  ❌ Total rejected: {len(rejected_loops)}")
-    print(f"  ⏳ Remaining in queue: {len(available) + len(declined)}")
-    print(f"  - Available: {len(available)}")
-    print(f"  - Declined: {len(declined)}")
 
     if return_status:
         return {
@@ -181,7 +198,6 @@ def simulate_trade_loops(user_csv_path, loop_csv_path, output_dir, return_status
             "rejected_loops": rejected_loops,
             "user_status": user_status
         }
-
 
 if __name__ == "__main__":
     with open("configs/config_simulate_trades.json", "r") as f:
