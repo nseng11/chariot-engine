@@ -71,6 +71,7 @@ while True:
             valid_loops.append(loop)
             matched_loops.append(loop)
 
+    # Find 3-way loops
     for a in G.nodes():
         for b in G.successors(a):
             for c in G.successors(b):
@@ -99,33 +100,20 @@ while True:
                     valid_loops.append(loop)
                     matched_loops.append(loop)
 
-    # Prioritize fairer loops
-    valid_loops.sort(key=lambda x: x.get('relative_fairness_score', float('inf')))
-
+    # Process valid loops without fairness-based prioritization
     if not valid_loops:
         print("\nNo more loops can be formed with available users.")
         break
-
-    # Compute quartiles for relative fairness scores
-    fairness_values = [loop['relative_fairness_score'] for loop in valid_loops if loop['relative_fairness_score'] is not None]
-    if fairness_values:
-        q1, q2, q3 = pd.Series(fairness_values).quantile([0.25, 0.50, 0.75])
 
     for loop in valid_loops:
         loop_users = loop['users']
         if all(user_status[u] == 'available' for u in loop_users):
             fairness = loop.get('relative_fairness_score', None)
 
-            if fairness is None or not fairness_values:
+            if fairness is None:
                 weights = [0.5, 0.5]  # fallback
-            elif fairness <= q1:
-                weights = [0.8, 0.2]
-            elif fairness <= q2:
-                weights = [0.6, 0.4]
-            elif fairness <= q3:
-                weights = [0.4, 0.6]
             else:
-                weights = [0.2, 0.8]
+                weights = [0.8, 0.2] if fairness <= 0.5 else [0.2, 0.8]
 
             decisions = {u: random.choices(['accept', 'decline'], weights=weights)[0] for u in loop_users}
 

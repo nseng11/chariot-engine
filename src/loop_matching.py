@@ -26,6 +26,7 @@ import pandas as pd
 import networkx as nx
 import numpy as np
 from typing import List, Dict, Any
+import random
 
 def load_users(user_csv_path: str) -> pd.DataFrame:
     """
@@ -69,12 +70,9 @@ def find_valid_loops(df: pd.DataFrame, G: nx.DiGraph) -> List[Dict[str, Any]]:
     Find valid trading loops in the graph.
     """
     loops = []
-    used_nodes = set()  # Keep track of nodes already in loops
-
-    # Find 2-way loops (prioritize these as they're simpler)
+    
+    # Find all possible 2-way loops
     for u, v in G.edges():
-        if u in used_nodes or v in used_nodes:
-            continue
         if G.has_edge(v, u) and u < v:
             # Check value constraints
             u_value = df.iloc[u]["have_value"]
@@ -84,19 +82,14 @@ def find_valid_loops(df: pd.DataFrame, G: nx.DiGraph) -> List[Dict[str, Any]]:
             
             if u_value >= v_min and v_value >= u_min:
                 loops.append({"indexes": [u, v], "loop_type": "2-way"})
-                used_nodes.add(u)
-                used_nodes.add(v)
 
-    # Find 3-way loops for remaining nodes
-    remaining_nodes = set(G.nodes()) - used_nodes
-    for a in remaining_nodes:
-        if a in used_nodes:
-            continue
+    # Find all possible 3-way loops
+    for a in G.nodes():
         for b in G.successors(a):
-            if b in used_nodes or b <= a:
+            if b <= a:
                 continue
             for c in G.successors(b):
-                if c in used_nodes or c <= b:
+                if c <= b:
                     continue
                 if G.has_edge(c, a):
                     # Check value constraints
@@ -106,11 +99,10 @@ def find_valid_loops(df: pd.DataFrame, G: nx.DiGraph) -> List[Dict[str, Any]]:
                     # Check if each person gets at least their minimum value
                     if all(values[i] >= min_values[(i+1)%3] for i in range(3)):
                         loops.append({"indexes": [a, b, c], "loop_type": "3-way"})
-                        used_nodes.update([a, b, c])
-                        break  # Once we find a valid 3-way loop, move to next node
-            if a in used_nodes:
-                break
 
+    # Randomly shuffle the loops to avoid bias
+    random.shuffle(loops)
+    
     return loops
 
 def enrich_loops(df: pd.DataFrame, raw_loops: List[Dict[str, Any]]) -> pd.DataFrame:

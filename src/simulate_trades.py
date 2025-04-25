@@ -39,28 +39,36 @@ import random
 from collections import deque
 from typing import Dict, List, Optional, Union, Any
 
-def get_trade_weights(fairness_score, value_efficiency, max_value_diff, avg_watch_value):
-    """Calculate acceptance weights based on multiple factors"""
+def get_trade_weights(fairness_score, value_efficiency, max_value_diff=None, avg_watch_value=None):
+    """Calculate acceptance weights based on value efficiency (primary) and fairness (secondary)"""
     base_weight = 0.5
-
-    # Adjust for fairness (existing logic)
-    fairness_modifier = 0.3 if fairness_score <= 0.25 else \
-                       0.2 if fairness_score <= 0.5 else \
-                       0.1 if fairness_score <= 0.75 else \
-                       0.0
-
-    # Adjust for value efficiency
-    efficiency_modifier = 0.2 if value_efficiency < 0.5 else \
-                         0.1 if value_efficiency < 0.7 else \
-                         0.0
-
-    # Adjust for value disparity relative to average value
-    disparity_modifier = 0.2 if max_value_diff > avg_watch_value else \
-                        0.1 if max_value_diff > avg_watch_value * 0.5 else \
-                        0.0
-
-    accept_weight = base_weight + fairness_modifier + efficiency_modifier + disparity_modifier
-    return [1 - accept_weight, accept_weight]  # [accept, decline]
+    
+    # Value Efficiency - Primary factor with data-driven thresholds
+    if value_efficiency < 0.8:         # Strong penalty below 0.8
+        efficiency_modifier = -0.4
+    elif value_efficiency < 0.8338:    # Q1: baseline
+        efficiency_modifier = 0.0
+    elif value_efficiency < 0.86:      # Q1-Q2: good
+        efficiency_modifier = 0.15
+    elif value_efficiency < 0.898:     # Q2-Q3: very good
+        efficiency_modifier = 0.25
+    else:                             # Above Q3: excellent
+        efficiency_modifier = 0.35
+    
+    # Relative Fairness - Secondary factor with right-skewed thresholds
+    if fairness_score < 0.7469:       # Below Q1: no boost
+        fairness_modifier = 0.0
+    elif fairness_score < 0.7888:     # Q1-Q2: minimal boost
+        fairness_modifier = 0.03
+    elif fairness_score < 0.8509:     # Q2-Q3: moderate boost
+        fairness_modifier = 0.08
+    elif fairness_score < 0.9:        # Q3-0.9: good boost
+        fairness_modifier = 0.12
+    else:                            # >0.9: excellent boost
+        fairness_modifier = 0.15
+    
+    accept_weight = base_weight + efficiency_modifier + fairness_modifier
+    return [1 - accept_weight, accept_weight]  # [decline, accept]
 
 def simulate_trade_loops(user_csv_path, loop_csv_path, output_dir, return_status=False,
                           user_trade_log=None, user_history_tracker=None, catalog=None,
