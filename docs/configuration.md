@@ -4,69 +4,97 @@ This document describes the configuration system used in the Chariot Engine trad
 
 ## Overview
 
-The system uses a hierarchical configuration system with multiple configuration files:
-- Base configuration (`config.json`)
-- Trade parameters (`trade_config.json`)
-- Simulation parameters (`simulation_config.json`)
+The system uses a modular configuration system with several key components:
+- Simulation parameters (`temp_config.json`)
+- Watch catalog (`seed_catalogs_w/watch_catalog.csv`)
+- Trade acceptance thresholds (built into the code)
 
 ## Configuration Files
 
-### Base Configuration (config.json)
+### Simulation Configuration (temp_config.json)
 ```json
 {
-    "input_directory": "data/input",
-    "output_directory": "data/output",
-    "log_level": "INFO",
-    "random_seed": 42
+    "initial_users": 15,
+    "growth_rate": 0.15,
+    "num_periods": 12,
+    "catalog_path": "seed_catalogs_w/watch_catalog.csv"
 }
 ```
 
-### Trade Configuration (trade_config.json)
-```json
-{
-    "min_acceptable_value": 100.0,
-    "max_cash_top_up": 500.0,
-    "min_efficiency": 0.3,
-    "max_value_disparity": 0.5,
-    "fairness_threshold": 0.7
+### Watch Catalog (watch_catalog.csv)
+A CSV file containing watch models and their values, ranging from $500 to $25,000.
+
+## Trade Acceptance Parameters
+
+### Value Efficiency Thresholds
+```python
+efficiency_thresholds = {
+    "penalty": 0.8,      # Strong penalty below this
+    "Q1": 0.8338,       # Baseline
+    "Q2": 0.86,         # Good
+    "Q3": 0.898         # Excellent
+}
+
+efficiency_modifiers = {
+    "below_min": -0.4,  # Below 0.8
+    "Q1_to_Q2": 0.15,   # 0.8338 to 0.86
+    "Q2_to_Q3": 0.25,   # 0.86 to 0.898
+    "above_Q3": 0.35    # Above 0.898
 }
 ```
 
-### Simulation Configuration (simulation_config.json)
-```json
-{
-    "max_rounds": 100,
-    "min_trades_per_round": 5,
-    "generate_reports": true,
-    "save_visualizations": true
+### Fairness Score Thresholds
+```python
+fairness_thresholds = {
+    "Q1": 0.7469,      # Baseline
+    "Q2": 0.7888,      # Minimal boost
+    "Q3": 0.8509,      # Moderate boost
+    "excellent": 0.9    # Maximum boost
+}
+
+fairness_modifiers = {
+    "below_Q1": 0.0,   # Below 0.7469
+    "Q1_to_Q2": 0.03,  # 0.7469 to 0.7888
+    "Q2_to_Q3": 0.08,  # 0.7888 to 0.8509
+    "Q3_to_0.9": 0.12, # 0.8509 to 0.9
+    "above_0.9": 0.15  # Above 0.9
 }
 ```
 
 ## Usage
 
-1. Copy the example configuration files from `configs/examples/`
-2. Modify parameters as needed
-3. Place in the `configs/` directory
-4. Configuration is automatically loaded when running simulations
+1. Configure simulation parameters in the Streamlit interface:
+   - Initial Users (5-50)
+   - Growth Rate (0-100%)
+   - Number of Periods (1-20)
 
-## Parameters
+2. The system will:
+   - Create a temporary config file
+   - Run the simulation
+   - Generate visualizations and analytics
+   - Save results in `simulations/run_TIMESTAMP/`
 
-### Trade Parameters
-- `min_acceptable_value`: Minimum value a user will accept in trade
-- `max_cash_top_up`: Maximum cash a user will add to balance a trade
-- `min_efficiency`: Minimum acceptable trade efficiency
-- `max_value_disparity`: Maximum allowed difference in watch values
-- `fairness_threshold`: Minimum fairness score for trade acceptance
+## Output Structure
 
-### Simulation Parameters
-- `max_rounds`: Maximum number of trading rounds
-- `min_trades_per_round`: Minimum trades required per round
-- `generate_reports`: Whether to generate analysis reports
-- `save_visualizations`: Whether to save visualization plots
+### Simulation Output Directory
+```
+simulations/run_TIMESTAMP/
+├── period_summary.csv       # Period-by-period metrics
+├── executed_loops.csv       # Successfully executed trades
+└── rejected_loops.csv       # Rejected trade opportunities
+```
+
+### Key Metrics Tracked
+- Trade counts (2-way and 3-way)
+- User pool statistics
+- Match success rates
+- Value efficiency metrics
+- Fairness scores
 
 ## Best Practices
 
-1. Always use configuration files instead of hardcoding values
-2. Keep sensitive information in separate configuration files
-3. Version control example configurations, not actual configurations
-4. Document any changes to configuration parameters 
+1. Use the Streamlit interface for parameter adjustments
+2. Monitor trade efficiency and fairness distributions
+3. Analyze both executed and rejected trades
+4. Track match rates across different trade types
+5. Consider the balance between efficiency and fairness scores 
