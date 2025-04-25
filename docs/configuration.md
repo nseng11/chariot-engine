@@ -61,6 +61,70 @@ fairness_modifiers = {
 }
 ```
 
+## Metric Calculations
+
+### Value Efficiency Example
+Value efficiency measures how much of the total value movement is watch value versus cash movement.
+
+```python
+value_efficiency = total_watch_value / (total_watch_value + total_cash_flow)
+```
+
+Example for a 3-way trade:
+```python
+# Watch Values
+user1_watch = $10,000
+user2_watch = $12,000
+user3_watch = $11,000
+
+# Trade Flow
+user1 -> user2  (needs to add $2,000)
+user2 -> user3  (receives $1,000)
+user3 -> user1  (receives $1,000)
+
+# Calculation
+total_watch_value = $10,000 + $12,000 + $11,000 = $33,000
+total_cash_flow = |$2,000| + |$1,000| + |$1,000| = $4,000
+
+value_efficiency = $33,000 / ($33,000 + $4,000)
+                = $33,000 / $37,000
+                ≈ 0.892 (89.2% efficient)
+```
+
+### Relative Fairness Example
+Relative fairness measures how evenly distributed the values are among participants, normalized by the maximum value.
+
+```python
+relative_fairness = 1 - (value_range / max_value)
+where: value_range = max_value - min_value
+```
+
+Example using the same 3-way trade:
+```python
+# Watch Values
+values = [$10,000, $12,000, $11,000]
+
+max_value = $12,000
+min_value = $10,000
+value_range = $12,000 - $10,000 = $2,000
+
+relative_fairness = 1 - ($2,000 / $12,000)
+                  = 1 - 0.167
+                  ≈ 0.833 (83.3% fair)
+```
+
+### Interpretation
+
+1. Value Efficiency (0.892):
+   - Above Q2 (0.86) but below Q3 (0.898)
+   - Gets a +0.25 efficiency modifier
+   - Indicates a good trade with relatively low cash movement
+
+2. Relative Fairness (0.833):
+   - Between Q2 (0.7888) and Q3 (0.8509)
+   - Gets a +0.08 fairness modifier
+   - Indicates reasonably balanced watch values
+
 ## Usage
 
 1. Configure simulation parameters in the Streamlit interface:
