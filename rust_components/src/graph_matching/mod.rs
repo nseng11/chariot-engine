@@ -23,7 +23,7 @@ pub struct TradeLoop {
     pub cash_flows: Vec<f64>,
     pub total_watch_value: f64,
     pub total_cash_flow: f64,
-    pub relative_fairness_score: f64,
+    pub value_efficiency: f64,
 }
 
 #[pyclass]
@@ -175,18 +175,7 @@ impl TradeGraph {
         
         let total_watch_value: f64 = values.iter().sum();
         let total_cash_flow: f64 = cash_flows.iter().map(|x| x.abs()).sum();
-        
-        // Calculate fairness score
-        let mean_value = total_watch_value / n as f64;
-        let variance = values.iter()
-            .map(|&x| (x - mean_value).powi(2))
-            .sum::<f64>() / n as f64;
-        let std_dev = variance.sqrt();
-        let relative_fairness_score = if mean_value > 0.0 {
-            (1.0 - std_dev / mean_value).max(0.0)
-        } else {
-            0.5
-        };
+        let value_efficiency = total_watch_value / (total_watch_value + total_cash_flow);
 
         TradeLoop {
             loop_type: loop_type.to_string(),
@@ -197,7 +186,7 @@ impl TradeGraph {
             cash_flows,
             total_watch_value,
             total_cash_flow,
-            relative_fairness_score,
+            value_efficiency
         }
     }
 } 

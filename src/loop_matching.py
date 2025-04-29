@@ -130,11 +130,6 @@ def enrich_loops(df: pd.DataFrame, raw_loops: List[Dict[str, Any]]) -> pd.DataFr
             if total_watch_value + total_cash_flow > 0 else 0,
             4
         )
-
-        max_value = max(values)
-        min_value = min(values)
-        value_range = max_value - min_value if max_value > min_value else 1
-        relative_fairness = 1 - (value_range / max_value if max_value > 0 else 0)
         
         # Prepare watch columns for visualization
         watch_dict = {}
@@ -151,8 +146,7 @@ def enrich_loops(df: pd.DataFrame, raw_loops: List[Dict[str, Any]]) -> pd.DataFr
             **watch_dict,  # Add watch columns in the expected format
             "total_watch_value": total_watch_value,
             "total_cash_flow": total_cash_flow,
-            "value_efficiency": value_efficiency,
-            "relative_fairness_score": round(relative_fairness, 4)
+            "value_efficiency": value_efficiency
         })
     
     return pd.DataFrame(output)

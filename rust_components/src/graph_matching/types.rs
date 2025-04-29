@@ -18,6 +18,5 @@ pub struct TradeLoop {
     pub cash_flows: Vec<f64>,
     pub total_watch_value: f64,
     pub total_cash_flow: f64,
-    pub value_efficiency: f64,
-    pub relative_fairness_score: f64,
+    pub value_efficiency: f64
 } 

@@ -8,7 +8,6 @@ class TradeConfig:
     max_cash_top_up: float
     min_efficiency: float
     max_value_disparity: float
-    fairness_threshold: float
 
 @dataclass
 class SimulationConfig:

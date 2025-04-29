@@ -39,8 +39,8 @@ import random
 from collections import deque
 from typing import Dict, List, Optional, Union, Any
 
-def get_trade_weights(fairness_score, value_efficiency, max_value_diff=None, avg_watch_value=None):
-    """Calculate acceptance weights based on value efficiency (primary) and fairness (secondary)"""
+def get_trade_weights(value_efficiency, max_value_diff=None, avg_watch_value=None):
+    """Calculate acceptance weights based on value efficiency"""
     base_weight = 0.5
     
     # Value Efficiency - Primary factor with data-driven thresholds
@@ -55,19 +55,7 @@ def get_trade_weights(fairness_score, value_efficiency, max_value_diff=None, avg
     else:                             # Above Q3: excellent
         efficiency_modifier = 0.35
     
-    # Relative Fairness - Secondary factor with right-skewed thresholds
-    if fairness_score < 0.7469:       # Below Q1: no boost
-        fairness_modifier = 0.0
-    elif fairness_score < 0.7888:     # Q1-Q2: minimal boost
-        fairness_modifier = 0.03
-    elif fairness_score < 0.8509:     # Q2-Q3: moderate boost
-        fairness_modifier = 0.08
-    elif fairness_score < 0.9:        # Q3-0.9: good boost
-        fairness_modifier = 0.12
-    else:                            # >0.9: excellent boost
-        fairness_modifier = 0.15
-    
-    accept_weight = base_weight + efficiency_modifier + fairness_modifier
+    accept_weight = base_weight + efficiency_modifier
     return [1 - accept_weight, accept_weight]  # [decline, accept]
 
 def simulate_trade_loops(user_csv_path, loop_csv_path, output_dir, return_status=False,
@@ -98,12 +86,6 @@ def simulate_trade_loops(user_csv_path, loop_csv_path, output_dir, return_status
     print(f"Total possible loops: {len(filtered_loops)}")
     
     if not filtered_loops.empty:
-        fairness_values = filtered_loops['relative_fairness_score'].dropna()
-        if not fairness_values.empty:
-            q1, q2, q3 = fairness_values.quantile([0.25, 0.5, 0.75])
-        else:
-            q1 = q2 = q3 = 0.0
-
         round_exec, round_reject = 0, 0
 
         for _, row in filtered_loops.iterrows():
@@ -111,18 +93,8 @@ def simulate_trade_loops(user_csv_path, loop_csv_path, output_dir, return_status
             if not all(user_status[u] == 'available' for u in loop_users):
                 continue
 
-            fairness = row.get('relative_fairness_score', None)
-
-            if fairness is None or pd.isna(fairness):
-                weights = [0.5, 0.5]
-            elif fairness <= q1:
-                weights = [0.8, 0.2]
-            elif fairness <= q2:
-                weights = [0.6, 0.4]
-            elif fairness <= q3:
-                weights = [0.4, 0.6]
-            else:
-                weights = [0.2, 0.8]
+            value_efficiency = row.get('value_efficiency', 0.5)
+            weights = get_trade_weights(value_efficiency)
 
             decisions = {
                 u: random.choices(['accept', 'decline'], weights=weights)[0]
@@ -161,7 +133,7 @@ def simulate_trade_loops(user_csv_path, loop_csv_path, output_dir, return_status
                         "cash_delta": row.get(f"cash_flow_{idx+1}"),
                         "have_watch": have_watch,
                         "received_watch": received_watch,
-                        "relative_fairness_score": row.get("relative_fairness_score"),
+                        "value_efficiency": value_efficiency,
                         "asset_value_per_user": round(float(row.get("total_value_moved", 0)) / len(loop_users), 2),
                         "watch_value_gain_pct": round(weight_factor * (recv_val - base_val), 2) if weight_factor is not None else None,
                         "loop_type": row.get("loop_type"),
