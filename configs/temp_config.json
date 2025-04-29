@@ -1,1 +1,1 @@
-{"initial_users": 15, "growth_rate": 0.1, "num_periods": 12, "catalog_path": "seed_catalogs_w/watch_catalog.csv"}
+{"initial_users": 10, "growth_rate": 0.15, "num_periods": 12, "catalog_path": "seed_catalogs_w/watch_catalog.csv"}
