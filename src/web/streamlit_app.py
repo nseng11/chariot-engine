@@ -134,9 +134,10 @@ def create_streamlit_app():
             )
             
             # Download button for CSV
+            csv_data = results_df.to_csv(index=False).encode('utf-8')
             st.download_button(
                 label="📥 Download Results CSV",
-                data=results_df.to_csv(index=False),
+                data=csv_data,
                 file_name=f"simulation_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                 mime="text/csv"
             )
