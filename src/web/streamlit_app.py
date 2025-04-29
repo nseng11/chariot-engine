@@ -31,7 +31,7 @@ def create_streamlit_app():
     initial_users = st.sidebar.slider(
         "Initial Users", 
         min_value=5, 
-        max_value=50, 
+        max_value=15,
         value=15,
         help="Number of users at the start of period 1"
     )
@@ -39,7 +39,7 @@ def create_streamlit_app():
     growth_rate = st.sidebar.slider(
         "Growth Rate", 
         min_value=0,
-        max_value=100, 
+        max_value=20,
         value=15,
         help="Rate at which new users are added each period (%)"
     ) / 100  # Convert percentage to decimal for the simulation
@@ -47,7 +47,7 @@ def create_streamlit_app():
     num_periods = st.sidebar.slider(
         "Number of Periods", 
         min_value=1, 
-        max_value=20, 
+        max_value=12,
         value=12,
         help="Total number of trading periods to simulate"
     )
