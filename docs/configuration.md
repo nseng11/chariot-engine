@@ -43,24 +43,6 @@ efficiency_modifiers = {
 }
 ```
 
-### Fairness Score Thresholds
-```python
-fairness_thresholds = {
-    "Q1": 0.7469,      # Baseline
-    "Q2": 0.7888,      # Minimal boost
-    "Q3": 0.8509,      # Moderate boost
-    "excellent": 0.9    # Maximum boost
-}
-
-fairness_modifiers = {
-    "below_Q1": 0.0,   # Below 0.7469
-    "Q1_to_Q2": 0.03,  # 0.7469 to 0.7888
-    "Q2_to_Q3": 0.08,  # 0.7888 to 0.8509
-    "Q3_to_0.9": 0.12, # 0.8509 to 0.9
-    "above_0.9": 0.15  # Above 0.9
-}
-```
-
 ## Metric Calculations
 
 ### Value Efficiency Example
@@ -91,39 +73,12 @@ value_efficiency = $33,000 / ($33,000 + $4,000)
                 ≈ 0.892 (89.2% efficient)
 ```
 
-### Relative Fairness Example
-Relative fairness measures how evenly distributed the values are among participants, normalized by the maximum value.
-
-```python
-relative_fairness = 1 - (value_range / max_value)
-where: value_range = max_value - min_value
-```
-
-Example using the same 3-way trade:
-```python
-# Watch Values
-values = [$10,000, $12,000, $11,000]
-
-max_value = $12,000
-min_value = $10,000
-value_range = $12,000 - $10,000 = $2,000
-
-relative_fairness = 1 - ($2,000 / $12,000)
-                  = 1 - 0.167
-                  ≈ 0.833 (83.3% fair)
-```
-
 ### Interpretation
 
-1. Value Efficiency (0.892):
-   - Above Q2 (0.86) but below Q3 (0.898)
-   - Gets a +0.25 efficiency modifier
-   - Indicates a good trade with relatively low cash movement
-
-2. Relative Fairness (0.833):
-   - Between Q2 (0.7888) and Q3 (0.8509)
-   - Gets a +0.08 fairness modifier
-   - Indicates reasonably balanced watch values
+Value Efficiency (0.892):
+- Above Q2 (0.86) but below Q3 (0.898)
+- Gets a +0.25 efficiency modifier
+- Indicates a good trade with relatively low cash movement
 
 ## Usage
 
@@ -153,15 +108,14 @@ simulations/run_TIMESTAMP/
 - User pool statistics
 - Match success rates
 - Value efficiency metrics
-- Fairness scores
 
 ## Best Practices
 
 1. Use the Streamlit interface for parameter adjustments
-2. Monitor trade efficiency and fairness distributions
+2. Monitor trade efficiency distributions
 3. Analyze both executed and rejected trades
 4. Track match rates across different trade types
-5. Consider the balance between efficiency and fairness scores
+5. Consider the trade efficiency scores
 
 ## Deployment Configuration
 
