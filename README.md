@@ -10,27 +10,6 @@ A peer-to-peer watch trading platform simulation engine that matches users for p
 - Interactive web interface
 - Detailed analytics and visualizations
 
-## Deployment Options
-
-### Option 1: Streamlit Cloud (Recommended for Development)
-The app is currently hosted on Streamlit Cloud at [chariotengine.streamlit.app](https://chariotengine.streamlit.app).
-
-### Option 2: DigitalOcean (Production)
-For production deployment, the app can be hosted on a DigitalOcean droplet:
-
-1. Set up a DigitalOcean droplet (Ubuntu 22.04 recommended)
-2. Configure your domain's DNS to point to the droplet
-3. Copy the application files to the server
-4. Run the deployment script:
-   ```bash
-   chmod +x deploy.sh
-   ./deploy.sh
-   ```
-5. Set up SSL with Let's Encrypt:
-   ```bash
-   sudo certbot --nginx -d your-domain.com
-   ```
-
 ## Local Development
 
 1. Clone the repository:
@@ -69,7 +48,6 @@ chariot-engine/
 ├── docs/
 │   └── configuration.md
 ├── requirements.txt
-├── deploy.sh
 └── README.md
 ```
 
