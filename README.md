@@ -63,7 +63,11 @@ chariot-engine/
 ├── seed_catalogs_w/
 │   └── watch_catalog.csv
 ├── configs/
-│   └── config.md
+│   ├── temp_config.json
+│   ├── watch_catalog.json
+│   └── config_test.json
+├── docs/
+│   └── configuration.md
 ├── requirements.txt
 ├── deploy.sh
 └── README.md
@@ -71,7 +75,7 @@ chariot-engine/
 
 ## Configuration
 
-See [config.md](configs/config.md) for detailed configuration options.
+See [configuration.md](docs/configuration.md) for detailed configuration options.
 
 ## License
 
