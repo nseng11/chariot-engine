@@ -15,8 +15,6 @@ class SimulationConfig:
     min_trades_per_round: int
     trade_config: TradeConfig
     output_directory: str
-    generate_reports: bool
-    save_visualizations: bool
 
 def load_config(config_path: str) -> SimulationConfig:
     """Load configuration from YAML file"""
