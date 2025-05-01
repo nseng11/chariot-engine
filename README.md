@@ -1,58 +1,60 @@
 # Chariot Engine
 
-Chariot Engine is a sophisticated watch trading simulation system that implements multi-party trading loops with fairness calculations and trade validation.
+A peer-to-peer watch trading platform simulation engine that matches users for potential trades based on their watch preferences and value constraints.
+
+## Features
+
+- User generation with realistic watch preferences
+- Trade loop matching algorithm
+- Multi-period simulation
+- Interactive web interface
+- Detailed analytics and visualizations
+
+## Local Development
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/chariot-engine.git
+   cd chariot-engine
+   ```
+
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. Run the Streamlit app locally:
+   ```bash
+   streamlit run src/web/streamlit_app.py
+   ```
 
 ## Project Structure
 
 ```
-chariot_engine/
-├── src/                      # Main Python implementation
-│   ├── loop_matching.py      # Core trade matching algorithms
-│   ├── simulate_trades.py    # Trade simulation engine
-│   ├── trade_analytics.py    # Analytics and reporting
-│   ├── trade_validation.py   # Trade validation rules
-│   ├── config.py            # Configuration management
-│   ├── loop_visuals.py      # Visualization utilities
-│   └── generate_users.py    # User data generation
-├── rust_components/         # High-performance Rust implementations
-├── configs/                 # Configuration files
-├── simulations/            # Simulation outputs
-├── templates/              # Template files
-└── static/                 # Static resources
+chariot-engine/
+├── src/
+│   ├── web/
+│   │   └── streamlit_app.py
+│   ├── generate_users.py
+│   ├── loop_matching.py
+│   ├── simulate_trades.py
+│   └── run_periodic_simulation.py
+├── seed_catalogs_w/
+│   └── watch_catalog.csv
+├── configs/
+│   ├── temp_config.json
+│   ├── watch_catalog.json
+│   └── config_test.json
+├── docs/
+│   └── configuration.md
+├── requirements.txt
+└── README.md
 ```
 
-## Features
+## Configuration
 
-- Multi-party trade matching (2-way and 3-way trades)
-- Fairness-based trade validation
-- Configurable simulation parameters
-- Trade analytics and visualization
-- High-performance Rust components (optional)
+See [configuration.md](docs/configuration.md) for detailed configuration options.
 
-## Getting Started
+## License
 
-1. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-2. Configure your environment:
-- Copy `configs/config.example.json` to `configs/config.json`
-- Adjust parameters as needed
-
-3. Run a simulation:
-```bash
-python src/run_periodic_simulation.py
-```
-
-## Documentation
-
-- See `docs/` for detailed documentation
-- Each module has inline documentation
-- Example configurations in `configs/examples/`
-
-## Development
-
-- Python 3.8+ required
-- Rust 1.54+ (optional, for rust_components)
-- See CONTRIBUTING.md for development guidelines
+MIT License
