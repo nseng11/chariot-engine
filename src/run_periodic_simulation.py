@@ -59,6 +59,25 @@ def run_multi_period_simulation(config_path="configs/config_run_periodic.json"):
         period_users_df.to_csv(period_users_path, index=False)
         run_loop_matching(period_users_path, match_results_path)
 
+        # Initialize match tracking columns
+        period_users_df['proposed_matches_count'] = 0
+        period_users_df['executed_trade'] = 0  # Binary indicator: 1 if user was part of an executed trade, 0 otherwise
+
+        # Count proposed matches from matching results
+        if os.path.exists(match_results_path):
+            try:
+                match_df = pd.read_csv(match_results_path)
+                if not match_df.empty:
+                    # Count how many times each user appears in proposed matches
+                    for _, row in match_df.iterrows():
+                        for i in range(1, 4):  # Check user_1, user_2, user_3 columns
+                            user_col = f'user_{i}'
+                            if user_col in row and pd.notna(row[user_col]):
+                                user_id = row[user_col]
+                                period_users_df.loc[period_users_df['user_id'] == user_id, 'proposed_matches_count'] += 1
+            except pd.errors.EmptyDataError:
+                pass
+
         # Run trade simulation
         sim_result = simulate_trade_loops(
             user_csv_path=period_users_path,
@@ -85,7 +104,7 @@ def run_multi_period_simulation(config_path="configs/config_run_periodic.json"):
                 if not exec_df.empty:
                     trades_2way = (exec_df["loop_type"] == "2-way").sum()
                     trades_3way = (exec_df["loop_type"] == "3-way").sum()
-                    # Get all matched users
+                    # Get all matched users and mark them as having executed a trade
                     for _, row in exec_df.iterrows():
                         users = eval(row["users"])
                         # Verify the number of users matches the trade type
@@ -94,6 +113,9 @@ def run_multi_period_simulation(config_path="configs/config_run_periodic.json"):
                         elif row["loop_type"] == "3-way" and len(users) != 3:
                             print(f"⚠️ Warning: 3-way trade with {len(users)} users")
                         matched_users.update(users)
+                        # Mark users as having executed a trade
+                        for user in users:
+                            period_users_df.loc[period_users_df['user_id'] == user, 'executed_trade'] = 1
             except pd.errors.EmptyDataError:
                 pass
 
@@ -114,13 +136,8 @@ def run_multi_period_simulation(config_path="configs/config_run_periodic.json"):
         # Users who weren't matched continue to next period
         carried_users_df = period_users_df[~period_users_df["user_id"].isin(matched_users)].copy()
         
-        # Double check our math
-        if continuing_users != len(carried_users_df):
-            print(f"\n⚠️ WARNING: Period {period + 1} math error")
-            print(f"Total pool: {total_pool}")
-            print(f"Users matched: {users_matched}")
-            print(f"Should continue: {continuing_users}")
-            print(f"Actually continuing: {len(carried_users_df)}")
+        # Save the period users CSV with both match counts
+        period_users_df.to_csv(period_users_path, index=False)
         
         # Record period summary
         period_summary = {
