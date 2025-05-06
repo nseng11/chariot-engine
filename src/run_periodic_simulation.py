@@ -56,12 +56,18 @@ def run_multi_period_simulation(config_path="configs/config_run_periodic.json"):
         period_users_path = os.path.join(period_dir, f"period_{period+1}_users.csv")
         match_results_path = os.path.join(period_dir, f"period_{period+1}_matching.csv")
         
+        # Remove redundant 'period' column if it exists
+        if 'period' in period_users_df.columns:
+            period_users_df = period_users_df.drop('period', axis=1)
+        
+        # Initialize columns for tracking matches and trades
+        period_users_df['proposed_matches_count'] = 0
+        period_users_df['executed_trade'] = 0
+        period_users_df['loop_id'] = 'N/A'
+        period_users_df['trade_id'] = 'N/A'
+        
         period_users_df.to_csv(period_users_path, index=False)
         run_loop_matching(period_users_path, match_results_path)
-
-        # Initialize match tracking columns
-        period_users_df['proposed_matches_count'] = 0
-        period_users_df['executed_trade'] = 0  # Binary indicator: 1 if user was part of an executed trade, 0 otherwise
 
         # Count proposed matches from matching results
         if os.path.exists(match_results_path):
@@ -113,9 +119,11 @@ def run_multi_period_simulation(config_path="configs/config_run_periodic.json"):
                         elif row["loop_type"] == "3-way" and len(users) != 3:
                             print(f"⚠️ Warning: 3-way trade with {len(users)} users")
                         matched_users.update(users)
-                        # Mark users as having executed a trade
+                        # Mark users as having executed a trade and record their linked trade_id and loop_id
                         for user in users:
                             period_users_df.loc[period_users_df['user_id'] == user, 'executed_trade'] = 1
+                            period_users_df.loc[period_users_df['user_id'] == user, 'trade_id'] = row['trade_id']
+                            period_users_df.loc[period_users_df['user_id'] == user, 'loop_id'] = row['loop_id']
             except pd.errors.EmptyDataError:
                 pass
 

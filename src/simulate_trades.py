@@ -101,12 +101,16 @@ def simulate_trade_loops(user_csv_path, loop_csv_path, output_dir, return_status
                 for u in loop_users
             }
 
-            trade_id = f"T{trade_counter[0]+1:05d}"
             loop_record = row.to_dict()
-            loop_record['users'] = json.dumps(loop_users)
-            loop_record['trade_id'] = trade_id
+            loop_record['users'] = str(loop_users).replace('"', "'")
             loop_record['period_executed'] = period
-            loop_record.pop('loop_id', None)
+            # Only assign trade_id if all users accept
+            if all(d == 'accept' for d in decisions.values()):
+                trade_id = f"T{trade_counter[0]+1:05d}"
+                loop_record['trade_id'] = trade_id
+                trade_counter[0] += 1
+            else:
+                loop_record['trade_id'] = 'N/A'
 
             for idx, u in enumerate(loop_users):
                 if user_history_tracker is not None:
@@ -125,8 +129,8 @@ def simulate_trade_loops(user_csv_path, loop_csv_path, output_dir, return_status
 
                     user_trade_log.append({
                         "user_id": u,
-                        "trade_id": trade_id,
-                        "user_sub_id": f"{trade_id}_{idx+1}",
+                        "trade_id": loop_record['trade_id'],
+                        "user_sub_id": f"{loop_record['trade_id']}_{idx+1}",
                         "period_number": period,
                         "timestamp": timestamp,
                         "decision": decisions[u],
@@ -161,8 +165,6 @@ def simulate_trade_loops(user_csv_path, loop_csv_path, output_dir, return_status
                             user_queue.append(u)
                 rejected_loops.append(loop_record)
                 round_reject += 1
-
-            trade_counter[0] += 1
 
     os.makedirs(output_dir, exist_ok=True)
     pd.DataFrame(executed_loops).to_csv(os.path.join(output_dir, "executed_loops.csv"), index=False)
