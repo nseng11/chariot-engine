@@ -130,7 +130,7 @@ def simulate_trade_loops(user_csv_path, loop_csv_path, output_dir, return_status
                     user_trade_log.append({
                         "user_id": u,
                         "trade_id": loop_record['trade_id'],
-                        "user_sub_id": f"{loop_record['trade_id']}_{idx+1}",
+                        "user_sub_id": f"{loop_record['trade_id']}_{idx+1}" if loop_record['trade_id'] != 'N/A' else f"N/A_{idx+1}",
                         "period_number": period,
                         "timestamp": timestamp,
                         "decision": decisions[u],

@@ -62,6 +62,7 @@ def run_multi_period_simulation(config_path="configs/config_run_periodic.json"):
         
         # Initialize columns for tracking matches and trades
         period_users_df['proposed_matches_count'] = 0
+        period_users_df['unique_matches_count'] = 0  # New column for unique matches
         period_users_df['executed_trade'] = 0
         period_users_df['loop_id'] = 'N/A'
         period_users_df['trade_id'] = 'N/A'
@@ -69,18 +70,37 @@ def run_multi_period_simulation(config_path="configs/config_run_periodic.json"):
         period_users_df.to_csv(period_users_path, index=False)
         run_loop_matching(period_users_path, match_results_path)
 
-        # Count proposed matches from matching results
+        # Count proposed matches and unique matches from matching results
         if os.path.exists(match_results_path):
             try:
                 match_df = pd.read_csv(match_results_path)
                 if not match_df.empty:
+                    # Dictionary to track unique end states for each user
+                    user_unique_matches = {user_id: set() for user_id in period_users_df['user_id']}
+                    
                     # Count how many times each user appears in proposed matches
                     for _, row in match_df.iterrows():
+                        # Get all users in this loop
+                        loop_users = []
                         for i in range(1, 4):  # Check user_1, user_2, user_3 columns
                             user_col = f'user_{i}'
                             if user_col in row and pd.notna(row[user_col]):
-                                user_id = row[user_col]
-                                period_users_df.loc[period_users_df['user_id'] == user_id, 'proposed_matches_count'] += 1
+                                loop_users.append(row[user_col])
+                        
+                        # For each user in the loop, identify their end state
+                        for i, user in enumerate(loop_users):
+                            # Get the watch this user would receive
+                            received_watch_col = f'received_watch_{i+1}'
+                            if received_watch_col in row and pd.notna(row[received_watch_col]):
+                                # Add to unique matches set: (user_id, received_watch)
+                                user_unique_matches[user].add(row[received_watch_col])
+                            
+                            # Increment proposed matches count
+                            period_users_df.loc[period_users_df['user_id'] == user, 'proposed_matches_count'] += 1
+                    
+                    # Update unique matches count for each user
+                    for user_id, unique_matches in user_unique_matches.items():
+                        period_users_df.loc[period_users_df['user_id'] == user_id, 'unique_matches_count'] = len(unique_matches)
             except pd.errors.EmptyDataError:
                 pass
 
@@ -108,10 +128,12 @@ def run_multi_period_simulation(config_path="configs/config_run_periodic.json"):
             try:
                 exec_df = pd.read_csv(exec_loops_path)
                 if not exec_df.empty:
-                    trades_2way = (exec_df["loop_type"] == "2-way").sum()
-                    trades_3way = (exec_df["loop_type"] == "3-way").sum()
+                    # Only count trades that have a valid trade_id
+                    valid_trades = exec_df[exec_df['trade_id'] != 'N/A']
+                    trades_2way = (valid_trades["loop_type"] == "2-way").sum()
+                    trades_3way = (valid_trades["loop_type"] == "3-way").sum()
                     # Get all matched users and mark them as having executed a trade
-                    for _, row in exec_df.iterrows():
+                    for _, row in valid_trades.iterrows():
                         users = eval(row["users"])
                         # Verify the number of users matches the trade type
                         if row["loop_type"] == "2-way" and len(users) != 2:
