@@ -89,11 +89,12 @@ def run_multi_period_simulation(config_path="configs/config_run_periodic.json"):
                         
                         # For each user in the loop, identify their end state
                         for i, user in enumerate(loop_users):
-                            # Get the watch this user would receive
+                            # Get the watch this user would receive and its value
                             received_watch_col = f'received_watch_{i+1}'
+                            value_col = f'value_{i+1}'
                             if received_watch_col in row and pd.notna(row[received_watch_col]):
-                                # Add to unique matches set: (user_id, received_watch)
-                                user_unique_matches[user].add(row[received_watch_col])
+                                # Add to unique matches set: (user_id, (received_watch, value))
+                                user_unique_matches[user].add((row[received_watch_col], row[value_col]))
                             
                             # Increment proposed matches count
                             period_users_df.loc[period_users_df['user_id'] == user, 'proposed_matches_count'] += 1
