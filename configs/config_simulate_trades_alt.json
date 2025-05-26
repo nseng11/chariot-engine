@@ -1,0 +1,11 @@
+{
+    "paths": {
+        "user_data": "data/period_12/period_12_users.csv",
+        "matching_data": "data/period_12/period_12_loops.csv",
+        "output_dir": "simulations/run_20250519_164632/period_12_alt",
+        "catalog_path": "data/watch_catalog.csv"
+    },
+    "simulation_type": "alternative",
+    "version": "1.0.0",
+    "description": "Alternative simulation using end-state based trading with competitive bidding"
+} 
