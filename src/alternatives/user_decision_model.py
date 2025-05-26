@@ -27,8 +27,8 @@ It takes into account various factors that influence real-world trading decision
 import numpy as np
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple
-from end_state_tracking import EndState
-from watch_attributes import WatchAttributeManager
+from alternatives.end_state_tracking import EndState
+from alternatives.watch_attributes import WatchAttributeManager
 
 @dataclass
 class UserProfile:
@@ -141,6 +141,10 @@ class UserDecisionModel:
         """
         Calculate a realistic cash overbid when trading up.
         Returns the overbid amount.
+        
+        The overbid can use up to the remaining capacity after the base cash flow.
+        For example, if max_cash_top_up is $1000 and base cash flow is $400,
+        the user can overbid up to $600.
         """
         if end_state.cash_flow >= 0:
             return 0.0
@@ -148,8 +152,14 @@ class UserDecisionModel:
         # Get watch attributes
         target_attrs = self.watch_attributes.get_watch_attributes(end_state.watch)
         
+        # Calculate remaining capacity after base cash flow
+        base_cash_flow = abs(end_state.cash_flow)
+        remaining_capacity = max_cash_top_up - base_cash_flow
+        
+        if remaining_capacity <= 0:
+            return 0.0
+        
         # Base overbid factors
-        value_difference = abs(end_state.cash_flow)
         financial_capacity = user_profile.financial_capacity
         risk_tolerance = user_profile.risk_tolerance
         
@@ -159,22 +169,17 @@ class UserDecisionModel:
         market_trend = target_attrs.market_trend
         value_retention = target_attrs.value_retention
         
-        # Calculate base overbid percentage (0-20% of value difference)
-        base_percentage = (
+        # Calculate what percentage of remaining capacity they're willing to use
+        capacity_usage_percentage = (
             0.1 * financial_capacity +     # Financial capacity influence
             0.05 * risk_tolerance +        # Risk tolerance influence
             0.03 * competition_factor +    # Competition influence
-            0.02 * time_factor +           # Time sensitivity influence
             0.03 * market_trend +          # Market trend influence
             0.02 * value_retention         # Value retention influence
         )
         
-        # Calculate actual overbid amount
-        overbid = value_difference * base_percentage
-        
-        # Ensure overbid doesn't exceed max cash top up
-        remaining_capacity = max_cash_top_up - abs(end_state.cash_flow)
-        overbid = min(overbid, remaining_capacity)
+        # Calculate overbid as a percentage of remaining capacity
+        overbid = remaining_capacity * capacity_usage_percentage
         
         # Add some randomness (±10%)
         random_factor = 0.9 + 0.2 * np.random.random()

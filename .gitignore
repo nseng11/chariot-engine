@@ -9,8 +9,24 @@ simulations/run_*/
 # === Python Cache and Compiled Files ===
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
 # === Jupyter Notebook Checkpoints ===
 .ipynb_checkpoints/
@@ -22,7 +38,7 @@ __pycache__/
 # === Virtual Environment Folders ===
 env/
 venv/
-.venv/
+ENV/
 
 # === VS Code Project Files ===
 .vscode/
@@ -33,3 +49,12 @@ Thumbs.db
 
 # === EXCEPTION: Keep the watch catalog file ===
 !seed_catalogs_w/watch_catalog.csv
+
+# === IDE Files ===
+.idea/
+*.swp
+*.swo
+
+# === Project Specific Files ===
+data/
+configs/temp_config.json

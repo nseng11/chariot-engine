@@ -6,6 +6,9 @@ This module provides a Streamlit interface for running the alternative trade sim
 mirroring the functionality of the original simulation but with the new end-state based approach.
 """
 
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import streamlit as st
 import pandas as pd
 import json
@@ -16,14 +19,17 @@ import numpy as np
 from datetime import datetime
 import plotly.express as px
 import plotly.graph_objects as go
+import logging
 
-# Use relative imports from current directory
-from simulate_trades_alt import simulate_trade_loops_alt
-from end_state_tracking import EndStateTracker
-from user_preferences import UserPreferenceManager
-from trade_prioritization import TradePrioritizer
-from user_decision_model import UserDecisionModel
-from watch_attributes import WatchAttributeManager
+# Use correct imports from alternatives directory
+from alternatives.simulate_trades_alt import simulate_trade_loops_alt
+from alternatives.end_state_tracking import EndStateTracker
+from alternatives.user_preferences import UserPreferenceManager
+from alternatives.trade_prioritization import TradePrioritizer
+from alternatives.user_decision_model import UserDecisionModel
+from alternatives.watch_attributes import WatchAttributeManager
+
+logging.basicConfig(level=logging.ERROR)
 
 def generate_user_data(period: int, initial_users: int, growth_rate: float) -> pd.DataFrame:
     """Generate user data for a given period based on growth parameters."""
@@ -124,7 +130,6 @@ def generate_loop_data(user_data: pd.DataFrame) -> pd.DataFrame:
                 value_efficiency = total_watch_value / (total_watch_value + total_cash_flow)
                 
                 # Add all potential trades without value efficiency threshold
-                print(f"Generated 3-way trade with users {user1['user_id']}, {user2['user_id']}, {user3['user_id']} and efficiency {value_efficiency:.3f}")
                 loops.append({
                     'loop_id': loop_id,
                     'user_id': user1['user_id'],
@@ -166,28 +171,38 @@ def save_results(results: pd.DataFrame, output_dir: str, config: Dict):
     # Save main results
     results.to_csv(os.path.join(output_dir, 'simulation_results.csv'), index=False)
     
+    # Calculate trade statistics
+    total_trades = len(results)
+    two_way_trades = len(results[results['user_ids'].str.count(',') == 1])
+    three_way_trades = len(results[results['user_ids'].str.count(',') == 2])
+    
+    # Calculate total cash flow
+    total_cash_flow = sum(float(cf) for cf in results['cash_flows'].str.split(',').explode())
+    avg_cash_flow = total_cash_flow / total_trades if total_trades > 0 else 0
+    
+    # Calculate unique users involved
+    unique_users = set(user for users in results['user_ids'] for user in users.split(','))
+    
     # Save period summary
     period_summary = pd.DataFrame([{
         'Period': config['parameters']['period'],
         'Initial Users': config['parameters']['initial_users'],
         'Growth Rate': config['parameters']['growth_rate'],
-        'Total Trades': len(results),
-        '2-Way Trades': len(results[results['loop_type'] == '2-way']),
-        '3-Way Trades': len(results[results['loop_type'] == '3-way']),
-        'Total Cash Flow': results['total_cash_flow'].sum(),
-        'Average Cash Flow': results['total_cash_flow'].mean(),
-        'Value Efficiency': results['value_efficiency'].mean(),
-        'Users Involved': len(set([user for users in results['users'] for user in users]))
+        'Total Trades': total_trades,
+        '2-Way Trades': two_way_trades,
+        '3-Way Trades': three_way_trades,
+        'Total Cash Flow': total_cash_flow,
+        'Average Cash Flow': avg_cash_flow,
+        'Users Involved': len(unique_users)
     }])
     period_summary.to_csv(os.path.join(output_dir, 'period_summary.csv'), index=False)
     
     # Save user tracking
     user_tracking = pd.DataFrame([{
         'user_id': user,
-        'trades_executed': len(results[results['users'].apply(lambda x: user in x)]),
-        'total_cash_flow': results[results['users'].apply(lambda x: user in x)]['total_cash_flow'].sum(),
-        'average_value_efficiency': results[results['users'].apply(lambda x: user in x)]['value_efficiency'].mean()
-    } for user in set([user for users in results['users'] for user in users])])
+        'trades_executed': len(results[results['user_ids'].str.contains(user)]),
+        'total_cash_flow': sum(float(cf) for cf in results[results['user_ids'].str.contains(user)]['cash_flows'].str.split(',').explode())
+    } for user in unique_users])
     user_tracking.to_csv(os.path.join(output_dir, 'user_tracking.csv'), index=False)
     
     # Save config
@@ -276,14 +291,10 @@ def main():
             step=0.1,
             help="Base probability for users to accept trades"
         )
-        
         overbid_factor = st.slider(
-            "Overbid Factor",
-            min_value=0.0,
-            max_value=0.2,
-            value=0.1,
-            step=0.01,
-            help="Maximum percentage users will overbid"
+            "Overbid Cap", 0.0, 1.0, 0.2,
+            step=0.1,
+            help="Maximum percentage of remaining cash top-up users are willing to use as an overbid"
         )
         
         # Simulation controls
@@ -301,22 +312,27 @@ def main():
                     user_trade_log = []
                     trade_counter = [0]
                     
-                    # Run simulation for each period
+                    unmatched_users_df = None  # Track unmatched users to roll over
+                    progress_bar = st.sidebar.progress(0, text="Simulating periods...")
                     for period in range(1, end_period + 1):
-                        st.write(f"Simulating period {period}...")
-                        
-                        # Create data directory if it doesn't exist
+                        print(f"Starting simulation for period {period}...")
+                        if period == 1:
+                            # Generate all users for the first period
+                            user_data = generate_user_data(period, initial_users, growth_rate)
+                        else:
+                            # Generate only new users for this period
+                            num_new_users = int(initial_users * (1 + growth_rate) ** (period - 1))
+                            new_users = generate_user_data(period, num_new_users, growth_rate)
+                            # Combine rolled-over users with new users
+                            user_data = pd.concat([unmatched_users_df, new_users], ignore_index=True) if unmatched_users_df is not None and not unmatched_users_df.empty else new_users
+
+                        # Generate loop data
+                        loop_data = generate_loop_data(user_data)
                         data_dir = Path(f"data/period_{period}")
                         data_dir.mkdir(parents=True, exist_ok=True)
-                        
-                        # Generate user and loop data
-                        user_data = generate_user_data(period, initial_users, growth_rate)
-                        loop_data = generate_loop_data(user_data)
-                        
-                        # Save generated data
                         user_data.to_csv(data_dir / f"period_{period}_users.csv", index=False)
                         loop_data.to_csv(data_dir / f"period_{period}_loops.csv", index=False)
-                        
+
                         # Update config with user parameters
                         config = {
                             "paths": {
@@ -338,7 +354,7 @@ def main():
                             },
                             "timestamp": timestamp
                         }
-                        
+
                         # Run simulation for this period
                         results = simulate_trade_loops_alt(
                             user_csv_path=config['paths']['user_data'],
@@ -349,16 +365,26 @@ def main():
                             user_history_tracker=user_history_tracker,
                             period=period,
                             timestamp=timestamp,
-                            trade_counter=trade_counter
+                            trade_counter=trade_counter,
+                            market_volatility=market_volatility,
+                            competition_level=competition_level,
+                            acceptance_threshold=acceptance_threshold,
+                            overbid_factor=overbid_factor
                         )
-                        
-                        if results is not None and isinstance(results, pd.DataFrame) and not results.empty:
-                            # Add period information to results
-                            results['period'] = period
-                            all_results.append(results)
-                            
-                            # Save period results
-                            save_results(results, config['paths']['output_dir'], config)
+
+                        if results is not None and results['executed_trades']:
+                            results_df = pd.DataFrame(results['executed_trades'])
+                            results_df['period'] = period
+                            all_results.append(results_df)
+                            save_results(results_df, config['paths']['output_dir'], config)
+                            matched_user_ids = set([user for users in results_df['user_ids'] for user in users.split(',')])
+                            unmatched_users_df = user_data[~user_data['user_id'].isin(matched_user_ids)].copy()
+                        else:
+                            unmatched_users_df = user_data.copy()
+                        print(f"Completed simulation for period {period}.")
+                        progress_bar.progress(period / end_period, text=f"Simulating period {period} of {end_period}")
+                    
+                    progress_bar.empty()
                     
                     if not all_results:
                         st.error("No trades were executed in any period")
@@ -370,14 +396,14 @@ def main():
                     # Save aggregate results
                     aggregate_summary = pd.DataFrame([{
                         "total_users_generated": end_users,
-                        "users_accepted_trade": len(set([user for users in combined_results['users'] for user in users])),
-                        "total_2way_trades": len(combined_results[combined_results['loop_type'] == '2-way']),
-                        "total_3way_trades": len(combined_results[combined_results['loop_type'] == '3-way']),
+                        "users_accepted_trade": len(set([user for users in combined_results['user_ids'] for user in users.split(',')])),
+                        "total_2way_trades": len(combined_results[combined_results['user_ids'].str.count(',') == 1]),
+                        "total_3way_trades": len(combined_results[combined_results['user_ids'].str.count(',') == 2]),
                         "total_trades_executed": len(combined_results),
-                        "percent_users_traded": round(100 * len(set([user for users in combined_results['users'] for user in users])) / end_users, 2),
+                        "percent_users_traded": round(100 * len(set([user for users in combined_results['user_ids'] for user in users.split(',')])) / end_users, 2),
                         "avg_users_per_trade": round(
-                            (2 * len(combined_results[combined_results['loop_type'] == '2-way']) + 
-                             3 * len(combined_results[combined_results['loop_type'] == '3-way'])) / 
+                            (2 * len(combined_results[combined_results['user_ids'].str.count(',') == 1]) + 
+                             3 * len(combined_results[combined_results['user_ids'].str.count(',') == 2])) / 
                             len(combined_results), 2
                         ),
                         "num_periods": end_period,
@@ -429,14 +455,21 @@ def main():
                     new_users_count = int(initial_users * (1 + growth_rate) ** (period - 1))
                 
                 # Get results for this period
-                period_results = st.session_state.results[st.session_state.results['period'] == period]
+                period_results_df = st.session_state.results[st.session_state.results['period'] == period]
                 
                 # Calculate users who traded this period
-                if not period_results.empty:
-                    # Extract unique users from the 'users' column
-                    users_in_trades = len(set([user.strip("'[] ") for users in period_results['users'] for user in users.split(',')]))
+                if not period_results_df.empty:
+                    # Extract unique users from the 'user_ids' column
+                    users_in_trades = len(set([user.strip("'[] ") for users in period_results_df['user_ids'] for user in users.split(',')]))
+                    # Count 2-way, 3-way, and total trades
+                    two_way_trades = len(period_results_df[period_results_df['user_ids'].str.count(',') == 1])
+                    three_way_trades = len(period_results_df[period_results_df['user_ids'].str.count(',') == 2])
+                    total_trades = len(period_results_df)
                 else:
                     users_in_trades = 0
+                    two_way_trades = 0
+                    three_way_trades = 0
+                    total_trades = 0
                 
                 # Calculate users who remain (didn't trade)
                 total_users = initial_users_count + new_users_count
@@ -454,7 +487,10 @@ def main():
                     'users_in_trades': users_in_trades,  # Users who traded
                     'final_users': remaining_users,  # Users who didn't trade
                     'participation_rate': participation_rate,  # Percentage of users who traded
-                    'retention_rate': retention_rate  # Percentage of users who didn't trade
+                    'retention_rate': retention_rate,  # Percentage of users who didn't trade
+                    'two_way_trades': two_way_trades,  # Number of 2-way trades
+                    'three_way_trades': three_way_trades,  # Number of 3-way trades
+                    'total_trades': total_trades  # Total number of trades
                 }
                 period_summaries.append(period_results)
                 
@@ -468,8 +504,6 @@ def main():
                 period_summary_df['Total Cash Flow'] = period_summary_df['total_cash_flow'].map('${:,.2f}'.format)
             if 'avg_cash_flow' in period_summary_df.columns:
                 period_summary_df['Avg Cash Flow'] = period_summary_df['avg_cash_flow'].map('${:,.2f}'.format)
-            if 'value_efficiency' in period_summary_df.columns:
-                period_summary_df['Avg Value Efficiency'] = period_summary_df['value_efficiency'].map('{:.1%}'.format)
             
             # Format rates as percentages
             period_summary_df['Participation Rate'] = period_summary_df['participation_rate'].map('{:.1f}%'.format)
@@ -482,14 +516,16 @@ def main():
                 'new_users',
                 'users_in_trades',
                 'final_users',
+                'two_way_trades',
+                'three_way_trades',
+                'total_trades',
                 'participation_rate',
                 'retention_rate'
             ]
             # Add optional columns if they exist
             optional_columns = [
                 'total_cash_flow',
-                'avg_cash_flow',
-                'value_efficiency'
+                'avg_cash_flow'
             ]
             column_order.extend([col for col in optional_columns if col in period_summary_df.columns])
             
@@ -542,9 +578,9 @@ def main():
                 ))
                 fig_retention.add_trace(go.Bar(
                     x=period_summary_df['period'],
-                    y=period_summary_df['users_in_trades'],
-                    name='Users in Trades',
-                    marker_color='green'
+                    y=period_summary_df['final_users'],
+                    name='Remaining Users',
+                    marker_color='red'
                 ))
                 fig_retention.update_layout(
                     title='User Retention and Trading Activity',
@@ -563,7 +599,7 @@ def main():
                 fig_participation = go.Figure()
                 fig_participation.add_trace(go.Scatter(
                     x=period_summary_df['period'],
-                    y=period_summary_df['participation_rate'],  # Use numeric value directly
+                    y=period_summary_df['participation_rate'],
                     name='Participation Rate',
                     line=dict(color='purple')
                 ))
@@ -581,7 +617,7 @@ def main():
                 fig_retention_rate = go.Figure()
                 fig_retention_rate.add_trace(go.Scatter(
                     x=period_summary_df['period'],
-                    y=period_summary_df['retention_rate'],  # Use numeric value directly
+                    y=period_summary_df['retention_rate'],
                     name='Retention Rate',
                     line=dict(color='orange')
                 ))
@@ -603,11 +639,12 @@ def main():
                 st.metric("Total Executed Trades", f"{total_trades}")
             
             with col4:
-                avg_cash_flow = st.session_state.results['total_cash_flow'].mean()
+                total_cash_flow = sum(float(cf) for cf in st.session_state.results['cash_flows'].str.split(',').explode())
+                avg_cash_flow = total_cash_flow / total_trades if total_trades > 0 else 0
                 st.metric("Average Cash Flow", f"${avg_cash_flow:,.2f}")
             
             with col5:
-                total_users = len(set([user for users in st.session_state.results['users'] for user in users]))
+                total_users = len(set([user for users in st.session_state.results['user_ids'] for user in users.split(',')]))
                 st.metric("Total Users Involved", f"{total_users}")
             
             # User Summary
@@ -619,8 +656,9 @@ def main():
                 st.metric("Average Trades per User", f"{avg_trades_per_user:.2f}")
             
             with col7:
-                avg_value_efficiency = st.session_state.results['value_efficiency'].mean()
-                st.metric("Average Value Efficiency", f"{avg_value_efficiency:.2%}")
+                two_way_trades = len(st.session_state.results[st.session_state.results['user_ids'].str.count(',') == 1])
+                three_way_trades = len(st.session_state.results[st.session_state.results['user_ids'].str.count(',') == 2])
+                st.metric("Trade Types", f"2-way: {two_way_trades}, 3-way: {three_way_trades}")
             
             with col8:
                 success_rate = (total_trades / len(st.session_state.results)) * 100
@@ -630,7 +668,10 @@ def main():
             st.subheader("📊 Trading Activity Analysis")
             
             # Trade type distribution
-            trade_types = st.session_state.results['loop_type'].value_counts()
+            trade_types = pd.Series({
+                '2-way': len(st.session_state.results[st.session_state.results['user_ids'].str.count(',') == 1]),
+                '3-way': len(st.session_state.results[st.session_state.results['user_ids'].str.count(',') == 2])
+            })
             fig_trade_types = px.pie(
                 values=trade_types.values,
                 names=trade_types.index,
@@ -639,22 +680,13 @@ def main():
             st.plotly_chart(fig_trade_types, use_container_width=True)
             
             # Cash flow distribution
+            cash_flows = pd.Series([float(cf) for cf in st.session_state.results['cash_flows'].str.split(',').explode()])
             fig_cash_flow = px.histogram(
-                st.session_state.results,
-                x='total_cash_flow',
+                x=cash_flows,
                 title="Distribution of Cash Flows",
-                labels={'total_cash_flow': 'Cash Flow ($)'}
+                labels={'x': 'Cash Flow ($)'}
             )
             st.plotly_chart(fig_cash_flow, use_container_width=True)
-            
-            # Value efficiency distribution
-            fig_efficiency = px.histogram(
-                st.session_state.results,
-                x='value_efficiency',
-                title="Distribution of Value Efficiency",
-                labels={'value_efficiency': 'Value Efficiency'}
-            )
-            st.plotly_chart(fig_efficiency, use_container_width=True)
             
             # Trading activity over time
             if 'period' in st.session_state.results.columns:

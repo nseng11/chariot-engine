@@ -30,8 +30,13 @@ class EndState:
     watch: str
     watch_value: float  # Value of the watch being received
     cash_flow: float
-    trade_sources: List[str]
-    value_efficiency: float
+    trade_sources: List[str] = None  # List of trade loop IDs that achieve this end state
+    value_efficiency: float = 0.0  # Efficiency score for this end state
+
+    def __post_init__(self):
+        """Initialize default values for optional fields"""
+        if self.trade_sources is None:
+            object.__setattr__(self, 'trade_sources', [])
 
     def __hash__(self):
         """Make the class hashable based on watch and cash flow"""
@@ -70,8 +75,6 @@ class EndStateTracker:
                 watch=received_watch,
                 watch_value=watch_value,
                 cash_flow=cash_flow,
-                trade_sources=[loop_id],
-                value_efficiency=value_efficiency
             )
             
             # Add to user's end states
@@ -91,8 +94,6 @@ class EndStateTracker:
                     watch=existing_state.watch,
                     watch_value=existing_state.watch_value,
                     cash_flow=existing_state.cash_flow,
-                    trade_sources=existing_state.trade_sources + [loop_id],
-                    value_efficiency=existing_state.value_efficiency
                 )
                 self.user_end_states[user_id].remove(existing_state)
                 self.user_end_states[user_id].add(updated_state)

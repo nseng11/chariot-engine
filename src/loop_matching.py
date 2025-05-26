@@ -138,6 +138,8 @@ def enrich_loops(df: pd.DataFrame, raw_loops: List[Dict[str, Any]]) -> pd.DataFr
             watch_dict[f"received_watch_{i}"] = received[i-1] if i <= len(received) else None
             watch_dict[f"cash_flow_{i}"] = cash_flows[i-1] if i <= len(cash_flows) else None
             watch_dict[f"user_{i}"] = users[i-1] if i <= len(users) else None
+            # Add value columns for each position
+            watch_dict[f"value_{i}"] = values[i-1] if i <= len(values) else None
             
         output.append({
             "loop_id": f"L{loop_id_num:04d}",

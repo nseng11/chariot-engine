@@ -42,36 +42,45 @@ class WatchAttributeManager:
         """Initialize scores based on catalog data"""
         # Group by brand to calculate brand-level metrics
         brand_stats = self.catalog_df.groupby('brand').agg({
-            'value': ['mean', 'std', 'count']
+            'base_price': ['mean', 'std', 'count']
         }).reset_index()
         
         # Calculate brand prestige scores (0-1)
-        max_value = brand_stats[('value', 'mean')].max()
-        min_value = brand_stats[('value', 'mean')].min()
-        brand_stats['prestige_score'] = (brand_stats[('value', 'mean')] - min_value) / (max_value - min_value)
+        max_value = brand_stats[('base_price', 'mean')].max()
+        min_value = brand_stats[('base_price', 'mean')].min()
+        brand_stats['prestige_score'] = (brand_stats[('base_price', 'mean')] - min_value) / (max_value - min_value)
+
+        # Debug printout for mean prices and prestige scores
+        print("\n[DEBUG] Brand Mean Prices and Prestige Scores:")
+        print(f"Min mean price: {min_value}")
+        print(f"Max mean price: {max_value}")
+        for idx, row in brand_stats.iterrows():
+            mean_price = float(row[('base_price', 'mean')])
+            prestige = float(row['prestige_score'])
+            print(f"Brand: {row['brand']}, Mean Price: {mean_price:.2f}, Prestige: {prestige:.3f}")
         
         # Calculate brand popularity scores (0-1)
-        max_count = brand_stats[('value', 'count')].max()
-        min_count = brand_stats[('value', 'count')].min()
-        brand_stats['popularity_score'] = (brand_stats[('value', 'count')] - min_count) / (max_count - min_count)
+        max_count = brand_stats[('base_price', 'count')].max()
+        min_count = brand_stats[('base_price', 'count')].min()
+        brand_stats['popularity_score'] = (brand_stats[('base_price', 'count')] - min_count) / (max_count - min_count)
         
         # Store brand-level scores
         self.brand_scores = brand_stats.set_index('brand')[['prestige_score', 'popularity_score']].to_dict('index')
         
         # Calculate model-level scores
         model_stats = self.catalog_df.groupby(['brand', 'model']).agg({
-            'value': ['mean', 'std']
+            'base_price': ['mean', 'std']
         }).reset_index()
         
         # Store model-level scores with default values for missing metrics
         self.model_scores = {}
         for _, row in model_stats.iterrows():
             key = f"{row['brand']} {row['model']}"
-            base_price = row[('value', 'mean')]
-            max_price = model_stats[('value', 'mean')].max()
+            base_price = row[('base_price', 'mean')]
+            max_price = model_stats[('base_price', 'mean')].max()
             
             # Calculate value retention based on price stability (std/mean)
-            std_price = row[('value', 'std')]
+            std_price = row[('base_price', 'std')]
             value_retention = 1 - (std_price / base_price if base_price > 0 else 0)
             
             # Calculate trading frequency based on price tier
@@ -97,11 +106,25 @@ class WatchAttributeManager:
     def get_model_attributes(self, brand: str, model: str) -> Dict[str, float]:
         """Get all attributes for a specific model"""
         key = f"{brand} {model}"
-        return self.model_scores.get(key, {
-            'value_retention': 0.5,
-            'trading_frequency': 0.5,
-            'market_trend': 0.5
-        })
+        attrs = self.model_scores.get(key, None)
+        if attrs is not None:
+            # If any attribute is missing or not meaningful, use brand-level as fallback
+            for attr in ['value_retention', 'trading_frequency', 'market_trend']:
+                if attrs[attr] is None or pd.isna(attrs[attr]) or attrs[attr] == 0.5:
+                    # Use brand-level prestige for value_retention, popularity for trading_frequency, and prestige for market_trend
+                    if attr == 'value_retention':
+                        attrs[attr] = self.get_brand_prestige(brand)
+                    elif attr == 'trading_frequency':
+                        attrs[attr] = self.get_brand_popularity(brand)
+                    elif attr == 'market_trend':
+                        attrs[attr] = self.get_brand_prestige(brand)
+            return attrs
+        # Fallback: all brand-level
+        return {
+            'value_retention': self.get_brand_prestige(brand),
+            'trading_frequency': self.get_brand_popularity(brand),
+            'market_trend': self.get_brand_prestige(brand)
+        }
     
     def get_watch_attributes(self, watch: str) -> WatchAttributes:
         """Get all attributes for a watch"""

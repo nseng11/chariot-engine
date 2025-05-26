@@ -7,6 +7,8 @@ from datetime import datetime
 import plotly.express as px
 import sys
 from pathlib import Path
+import zipfile
+import io
 
 # Add the src directory to the Python path
 src_path = str(Path(__file__).parent.parent)
@@ -104,25 +106,20 @@ def create_streamlit_app():
             with col4:
                 success_rate = (total_matched_users / total_unique_users * 100)
                 st.metric("Match Success Rate", f"{success_rate:.1f}%")
-            
-            # Detailed visualizations
+
+            # Show the charts next
             st.subheader("📊 Trading Activity Over Time")
-            
-            # Trade volume chart
             fig_trades = px.line(results_df, x="Period", 
                                y=["2-Way Trades", "3-Way Trades", "Total Trades"],
                                title="Trade Volume by Type")
             st.plotly_chart(fig_trades, use_container_width=True)
-            
-            # User flow chart
             fig_users = px.line(results_df, x="Period",
                               y=["Start Users", "New Users", "Total Pool", "End Users"],
                               title="User Flow Analysis")
             st.plotly_chart(fig_users, use_container_width=True)
-            
-            # Detailed results table
+
+            # Now show the detailed results table
             st.subheader("📋 Detailed Period Summary")
-            # Select and reorder columns for the detailed view
             display_columns = [
                 "Period", "Start Users", "New Users", "Total Pool",
                 "2-Way Trades", "3-Way Trades", "Total Trades",
@@ -132,15 +129,35 @@ def create_streamlit_app():
                 results_df[display_columns].style.highlight_max(axis=0),
                 use_container_width=True
             )
-            
-            # Download button for CSV
-            csv_data = results_df.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="📥 Download Results CSV",
-                data=csv_data,
-                file_name=f"simulation_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                mime="text/csv"
-            )
+
+            # Download buttons remain at the end
+            st.subheader("Download Results")
+            col1, col2 = st.columns(2)
+            with col1:
+                with open(f"{latest_run}/period_summary.csv", "rb") as f:
+                    st.download_button(
+                        label="📊 Download Summary CSV",
+                        data=f,
+                        file_name="period_summary.csv",
+                        mime="text/csv"
+                    )
+            with col2:
+                zip_buffer = io.BytesIO()
+                with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                    for root, dirs, files in os.walk(latest_run):
+                        for file in files:
+                            file_path = os.path.join(root, file)
+                            arcname = os.path.relpath(file_path, os.path.dirname(latest_run))
+                            zip_file.write(file_path, arcname)
+                zip_buffer.seek(0)
+                zip_data = zip_buffer.getvalue()
+                run_timestamp = os.path.basename(latest_run).replace('run_', '')
+                st.download_button(
+                    label="📁 Download Full Simulation",
+                    data=zip_data,
+                    file_name=f"simulation_run_{run_timestamp}.zip",
+                    mime="application/zip"
+                )
 
 if __name__ == "__main__":
     create_streamlit_app()
